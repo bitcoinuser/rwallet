@@ -4,6 +4,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, RefreshControl, ActivityIndicator,
   Image,
+  Platform,
 } from 'react-native';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
@@ -198,6 +199,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
+    marginBottom: Platform.OS === 'android' ? 20 : 0,
   },
   noTransNotice: {
     textAlign: 'center',
@@ -339,6 +341,7 @@ class History extends Component {
       pendingBalanceText: null,
       pendingBalanceValueText: null,
       fetchTxTimestamp: undefined, // Record the timestamp of the request
+      shouldScrollToEnd: false,
     };
 
     this.refreshControl = this.refreshControl.bind(this);
@@ -414,15 +417,17 @@ class History extends Component {
         this.setState({ isLoadMore: false });
         this.setState({ isRefreshing: false });
 
-        const { listData: prevListData, isLoadMore } = this.state;
+        const { listData: prevListData, shouldScrollToEnd } = this.state;
         const prevListDataLength = (prevListData && prevListData.length) || 0;
         const nextListDataLength = (listData && listData.length) || 0;
-        // When isLoadMore = true and prevListDataLength === nextListDataLength, there is no new data to update
+        // When shouldScrollToEnd = true and prevListDataLength === nextListDataLength, there is no new data to update
         // Let the FlatList scroll to the end
-        if (isLoadMore && prevListDataLength && nextListDataLength && prevListDataLength === nextListDataLength) {
+        if (shouldScrollToEnd && prevListDataLength && nextListDataLength && prevListDataLength === nextListDataLength) {
           // Scroll to the end when there is no new data
           setTimeout(() => {
-            this.flatList.scrollToEnd();
+            if (this.flatList) {
+              this.flatList.scrollToEnd();
+            }
           }, 100);
         }
       }
@@ -467,7 +472,12 @@ class History extends Component {
 
     // If scroll to the end, load more data
     if (offsetY + oriageScrollHeight >= contentSizeHeight - 20) {
-      this.loadMoreData();
+      this.setState({ shouldScrollToEnd: true }, () => {
+        this.loadMoreData();
+      });
+    } else {
+      // If user scroll to another position, no need to scroll end
+      this.setState({ shouldScrollToEnd: false });
     }
   }
 
@@ -521,6 +531,7 @@ class History extends Component {
 
   listView = (listData, onPress, isRefreshing) => (
     <FlatList
+      // contentContainerStyle={Platform.OS === 'android' ? { paddingBottom: 20 } : {}}
       ref={(flatList) => { this.flatList = flatList; }}
       showsVerticalScrollIndicator={false}
       data={listData}
