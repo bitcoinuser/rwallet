@@ -413,6 +413,18 @@ class History extends Component {
       if (txTimestamp === fetchTxTimestamp) {
         this.setState({ isLoadMore: false });
         this.setState({ isRefreshing: false });
+
+        const { listData: prevListData } = this.state;
+        const prevListDataLength = (prevListData && prevListData.length) || 0;
+        const nextListDataLength = (listData && listData.length) || 0;
+        // When prevListDataLength === nextListDataLength, there is no new data to update
+        // Let the FlatList scroll to the end
+        if (prevListDataLength && nextListDataLength && prevListDataLength === nextListDataLength) {
+          // Scroll to the end when the FlatList data has updated
+          setTimeout(() => {
+            this.flatList.scrollToEnd();
+          }, 100);
+        }
       }
 
       this.setState({
@@ -498,6 +510,7 @@ class History extends Component {
 
   listView = (listData, onPress, isRefreshing) => (
     <FlatList
+      ref={(flatList) => { this.flatList = flatList; }}
       showsVerticalScrollIndicator={false}
       data={listData}
       renderItem={({ item, index }) => (
@@ -518,7 +531,7 @@ class History extends Component {
       ListHeaderComponent={this.renderHeader(listData, isRefreshing)}
       ListFooterComponent={this.renderFooter}
       onEndReached={this.onEndReached}
-      onEndReachedThreshold={0.5}
+      onEndReachedThreshold={0.1}
       onMomentumScrollBegin={this.onMomentumScrollBegin}
     />
   );
