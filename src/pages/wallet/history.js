@@ -414,13 +414,13 @@ class History extends Component {
         this.setState({ isLoadMore: false });
         this.setState({ isRefreshing: false });
 
-        const { listData: prevListData } = this.state;
+        const { listData: prevListData, isLoadMore } = this.state;
         const prevListDataLength = (prevListData && prevListData.length) || 0;
         const nextListDataLength = (listData && listData.length) || 0;
-        // When prevListDataLength === nextListDataLength, there is no new data to update
+        // When isLoadMore = true and prevListDataLength === nextListDataLength, there is no new data to update
         // Let the FlatList scroll to the end
-        if (prevListDataLength && nextListDataLength && prevListDataLength === nextListDataLength) {
-          // Scroll to the end when the FlatList data has updated
+        if (isLoadMore && prevListDataLength && nextListDataLength && prevListDataLength === nextListDataLength) {
+          // Scroll to the end when there is no new data
           setTimeout(() => {
             this.flatList.scrollToEnd();
           }, 100);
@@ -443,21 +443,6 @@ class History extends Component {
     this.fetchTokenTransactions(0);
   }
 
-  onEndReached = () => {
-    const { isLoadMore, isRefreshing, listData } = this.state;
-    // In these cases, the operation of loading more should not be executed.
-    // 1. the list data is empty
-    // 2. It's loading more
-    // 3. When FlatList momentum scroll, the onEndReached function is called before.
-    if (_.isEmpty(listData) || isRefreshing || isLoadMore || this.isOnEndReachedCalledDuringMomentum) {
-      return;
-    }
-    this.isOnEndReachedCalledDuringMomentum = true;
-    // Record the request time so that you can check whether it is the latest request during the callback
-    this.setState({ isLoadMore: true });
-    this.fetchTokenTransactions(this.coin.transactions.length);
-  }
-
   onSendButtonClick() {
     const { navigation } = this.props;
     navigation.navigate('Transfer', navigation.state.params);
@@ -475,6 +460,17 @@ class History extends Component {
     }
   }
 
+  onScroll = (e) => {
+    const offsetY = e.nativeEvent.contentOffset.y; // scroll height
+    const contentSizeHeight = e.nativeEvent.contentSize.height; // scrollView contentSize height
+    const oriageScrollHeight = e.nativeEvent.layoutMeasurement.height; // scrollView height
+
+    // If scroll to the end, load more data
+    if (offsetY + oriageScrollHeight >= contentSizeHeight - 20) {
+      this.loadMoreData();
+    }
+  }
+
   onbackClick() {
     const { navigation } = this.props;
     navigation.goBack();
@@ -485,6 +481,21 @@ class History extends Component {
     const { navigation } = this.props;
     const item = listData[index];
     navigation.navigate('Transaction', item);
+  }
+
+  loadMoreData = () => {
+    const { isLoadMore, isRefreshing, listData } = this.state;
+    // In these cases, the operation of loading more should not be executed.
+    // 1. the list data is empty
+    // 2. It's loading more
+    // 3. When FlatList momentum scroll, the onEndReached function is called before.
+    if (_.isEmpty(listData) || isRefreshing || isLoadMore || this.isOnEndReachedCalledDuringMomentum) {
+      return;
+    }
+    this.isOnEndReachedCalledDuringMomentum = true;
+    // Record the request time so that you can check whether it is the latest request during the callback
+    this.setState({ isLoadMore: true });
+    this.fetchTokenTransactions(this.coin.transactions.length);
   }
 
   fetchTokenTransactions = (skipCount) => {
@@ -530,9 +541,8 @@ class History extends Component {
         )}
       ListHeaderComponent={this.renderHeader(listData, isRefreshing)}
       ListFooterComponent={this.renderFooter}
-      onEndReached={this.onEndReached}
-      onEndReachedThreshold={0.1}
       onMomentumScrollBegin={this.onMomentumScrollBegin}
+      onScroll={this.onScroll}
     />
   );
 
